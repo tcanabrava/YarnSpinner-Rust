@@ -77,20 +77,22 @@ impl YarnFileSource {
             "Failed to load Yarn file folder {path}.\nHelp: Does the folder exist?",
             path = path.display()
         );
-        let handles: Result<Vec<_>> =
-            glob(path.join("**/*.yarn").to_str().with_context(|| {
+        let handles: Result<Vec<_>> = glob(anyhow::Context::with_context(
+            path.join("**/*.yarn").to_str(),
+            || {
                 format!(
                     "Failed to create string from path: {path}",
                     path = path.display(),
                 )
-            })?)?
-            .map(|entry| {
-                let full_path = entry?;
-                let path = full_path.strip_prefix(&asset_root.0)?;
-                let asset_path = path.to_string_lossy().replace('\\', "/");
-                Ok(asset_server.load(asset_path))
-            })
-            .collect();
+            },
+        )?)?
+        .map(|entry| {
+            let full_path = entry?;
+            let path = full_path.strip_prefix(&asset_root.0)?;
+            let asset_path = path.to_string_lossy().replace('\\', "/");
+            Ok(asset_server.load(asset_path))
+        })
+        .collect();
         let handles = handles?;
 
         if handles.is_empty() {

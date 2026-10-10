@@ -22,3 +22,7 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+# Local Bevy 0.20 migration for the upstream 3D demo dependency.
+[patch.crates-io]
+bevy_sprite3d = { path = "../bevy_sprite3d" }
