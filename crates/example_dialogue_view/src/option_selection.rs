@@ -260,4 +260,64 @@ mod tests {
         app.world_mut().remove_resource::<OptionSelection>();
         app.world_mut().trigger(Activate { entity: button });
     }
+
+    #[test]
+    fn pointer_click_bubbles_from_label_and_activates_the_option() {
+        use bevy::camera::NormalizedRenderTarget;
+        use bevy::picking::{
+            backend::HitData,
+            events::{Pointer, PointerClick, PointerPress, PointerRelease},
+            pointer::{Location, PointerButton, PointerId},
+        };
+
+        let (mut app, button) = app(true);
+        app.add_plugins(ButtonPlugin);
+        // PointerTraversal queries Window even without a windowing plugin.
+        app.world_mut().spawn(Window::default());
+        let label = app.world_mut().spawn(ChildOf(button)).id();
+        app.update();
+        let pointer = Pointer::new(
+            PointerId::Mouse,
+            Location {
+                target: NormalizedRenderTarget::None {
+                    width: 1,
+                    height: 1,
+                },
+                position: Vec2::ZERO,
+            },
+        );
+        let hit = HitData::new(Entity::PLACEHOLDER, 0.0, None, None);
+        app.world_mut().trigger(PointerPress {
+            entity: label,
+            pointer: pointer.clone(),
+            button: PointerButton::Primary,
+            hit: hit.clone(),
+            count: 1,
+        });
+        app.update();
+        assert!(app.world().get::<Pressed>(button).is_some());
+        assert_eq!(app.world().resource::<OptionSelection>().selected, None);
+        // Bevy dispatches click before release; ButtonPlugin emits Activate.
+        app.world_mut().trigger(PointerClick {
+            entity: label,
+            pointer: pointer.clone(),
+            button: PointerButton::Primary,
+            hit: hit.clone(),
+            duration: std::time::Duration::from_millis(50),
+            count: 1,
+        });
+        app.update();
+        assert_eq!(
+            app.world().resource::<OptionSelection>().selected,
+            Some(OptionId(1))
+        );
+        app.world_mut().trigger(PointerRelease {
+            entity: label,
+            pointer,
+            button: PointerButton::Primary,
+            hit,
+        });
+        app.update();
+        assert!(app.world().get::<Pressed>(button).is_none());
+    }
 }
