@@ -156,13 +156,14 @@ fn activate_option(
     event: On<Activate>,
     buttons: Query<&OptionButton, With<Button>>,
     selection: Option<ResMut<OptionSelection>>,
-    typewriter: Res<Typewriter>,
+    typewriter: Option<Res<Typewriter>>,
 ) {
-    if !typewriter.is_finished() {
-        return;
-    }
-    if let Some(mut selection) = selection
-        && let Ok(button) = buttons.get(event.entity)
+    // Activate is global: title/phone widgets can fire it outside a dialogue.
+    // Typewriter is created on DialogueStarted and removed on DialogueCompleted.
+    if let Ok(button) = buttons.get(event.entity)
+        && let Some(mut selection) = selection
+        && let Some(typewriter) = typewriter
+        && typewriter.is_finished()
     {
         selection.selected.get_or_insert(button.0);
     }
@@ -242,6 +243,20 @@ mod tests {
             app.world().resource::<OptionSelection>().selected,
             Some(OptionId(1))
         );
+    }
+
+    #[test]
+    fn activation_outside_a_conversation_does_not_require_a_typewriter() {
+        let (mut app, option) = app(true);
+        let unrelated = app.world_mut().spawn(Button).id();
+        // Typewriter exists only between DialogueStarted and DialogueCompleted.
+        // Our global Activate observer also receives title/phone button clicks.
+        app.world_mut().remove_resource::<Typewriter>();
+        app.world_mut().trigger(Activate { entity: unrelated });
+        app.world_mut().trigger(Activate { entity: option });
+        assert_eq!(app.world().resource::<OptionSelection>().selected, None);
+        app.world_mut().remove_resource::<OptionSelection>();
+        app.world_mut().trigger(Activate { entity: unrelated });
     }
 
     #[test]
