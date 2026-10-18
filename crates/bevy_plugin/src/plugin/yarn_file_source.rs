@@ -59,7 +59,9 @@ impl YarnFileSource {
         match self {
             Self::Handle(handle) => Ok(vec![handle.clone()]),
             Self::InMemory(yarn_file) => Ok(vec![assets.add(yarn_file.clone())]),
-            Self::File(path) => Ok(vec![asset_server.load(path.clone())]),
+            // A PathBuf becomes a default-source AssetPath in Bevy. Parse its
+            // string form instead so named sources such as game:// survive.
+            Self::File(path) => Ok(vec![asset_server.load(path.to_string_lossy().into_owned())]),
             #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             Self::Folder(path) => Self::load_folder(asset_server, path.as_path(), asset_root),
         }
